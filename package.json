@@ -1,0 +1,17 @@
+{
+  "name": "dining-audit-tracker",
+  "private": true,
+  "version": "0.1.0",
+  "description": "CMU Dining waste-segregation audit tracker (Supabase + React)",
+  "scripts": {
+    "dev": "npm --prefix web run dev",
+    "build": "npm --prefix web run build",
+    "preview": "npm --prefix web run preview",
+    "seed:users": "tsx scripts/seed_users.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "@types/node": "^22.10.5",
+    "dotenv": "^16.4.7"
+  }
+}
