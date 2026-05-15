@@ -1,6 +1,6 @@
 /**
  * Seed the four test accounts:
- *   - admin: semathew@andrew.cmu.edu
+ *   - admin: admin@diningaudits.test
  *   - rep:   rep.abp@diningaudits.test         -> ABP
  *   - rep:   rep.schatz@diningaudits.test      -> Schatz
  *   - rep:   rep.stacked@diningaudits.test     -> Stacked Underground
@@ -40,11 +40,11 @@ function randomPassword(len = 16): string {
 
 type Spec = { email: string; full_name: string; role: "admin" | "rep"; locationName?: string; password?: string };
 
-const ADMIN_EMAIL    = process.env.ADMIN_EMAIL ?? "semathew@andrew.cmu.edu";
+const ADMIN_EMAIL    = process.env.ADMIN_EMAIL ?? "admin@diningaudits.test";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? randomPassword();
 
 const specs: Spec[] = [
-  { email: ADMIN_EMAIL, full_name: "Sam Mathew",       role: "admin", password: ADMIN_PASSWORD },
+  { email: ADMIN_EMAIL, full_name: "Dining Audits Admin", role: "admin", password: ADMIN_PASSWORD },
   { email: "rep.abp@diningaudits.test",     full_name: "ABP Rep",     role: "rep", locationName: "ABP" },
   { email: "rep.schatz@diningaudits.test",  full_name: "Schatz Rep",  role: "rep", locationName: "Schatz" },
   { email: "rep.stacked@diningaudits.test", full_name: "Stacked Rep", role: "rep", locationName: "Stacked Underground" },
