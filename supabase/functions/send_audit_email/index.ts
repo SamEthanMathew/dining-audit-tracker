@@ -39,9 +39,9 @@ type OutboxRow = {
 };
 
 async function getResendKey(admin: ReturnType<typeof createClient>): Promise<string> {
-  const { data, error } = await admin.schema("app").from("secrets").select("value").eq("key", "resend_api_key").maybeSingle();
+  const { data, error } = await admin.from("app_secrets").select("value").eq("key", "resend_api_key").maybeSingle();
   if (error) throw new Error(`secret lookup: ${error.message}`);
-  if (!data?.value) throw new Error("resend_api_key not set in app.secrets");
+  if (!data?.value) throw new Error("resend_api_key not set in app_secrets");
   return data.value;
 }
 

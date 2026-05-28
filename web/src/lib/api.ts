@@ -87,7 +87,7 @@ export async function submitAudit(payload: SubmitAuditPayload): Promise<SubmitAu
 export async function triggerEmail(auditId: string): Promise<void> {
   // Fire-and-forget — failures shouldn't block the rep.
   try {
-    await supabase.functions.invoke("send_audit_email", { body: { audit_id: auditId } });
+    await supabase.functions.invoke("send_audit_email_v2", { body: { audit_id: auditId } });
   } catch (e) {
     console.warn("email trigger failed (will retry via outbox)", e);
   }
