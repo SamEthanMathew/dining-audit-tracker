@@ -14,6 +14,7 @@ export default function Layout({ admin = false }: { admin?: boolean }) {
     { to: "/admin/new-audit",       label: "New Audit" },
     { to: "/admin/audits",          label: "Audits" },
     { to: "/admin/users",           label: "Users" },
+    { to: "/admin/locations",       label: "Locations" },
     { to: "/admin/recommendations", label: "Recommendations" },
     { to: "/admin/settings",        label: "Settings" },
     { to: "/admin/access-logs",     label: "Access Logs" },

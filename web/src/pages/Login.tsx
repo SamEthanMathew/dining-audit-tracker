@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { resolveUsername } from "../lib/api";
 
 export default function Login() {
   const { signIn, session } = useAuth();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -18,10 +19,26 @@ export default function Login() {
     e.preventDefault();
     setError(null);
     setBusy(true);
-    const { error } = await signIn(email, password);
-    setBusy(false);
-    if (error) setError(error);
-    else nav("/", { replace: true });
+    try {
+      // If the identifier doesn't look like an email, look up the email by username.
+      let email = identifier.trim();
+      if (!email.includes("@")) {
+        const resolved = await resolveUsername(email);
+        if (!resolved) {
+          setError("Username not found.");
+          setBusy(false);
+          return;
+        }
+        email = resolved;
+      }
+      const { error } = await signIn(email, password);
+      setBusy(false);
+      if (error) setError(error);
+      else nav("/", { replace: true });
+    } catch (e: any) {
+      setError(e?.message ?? "Sign-in failed.");
+      setBusy(false);
+    }
   }
 
   return (
@@ -36,13 +53,12 @@ export default function Login() {
         </div>
         <form onSubmit={onSubmit} className="space-y-3">
           <div>
-            <label className="label">Email</label>
+            <label className="label">Username or email</label>
             <input
               className="input"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               required
             />
           </div>

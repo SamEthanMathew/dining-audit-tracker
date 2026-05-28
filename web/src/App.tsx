@@ -9,6 +9,7 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import AdminNewAudit from "./pages/admin/NewAudit";
 import AdminAudits from "./pages/admin/AuditsLog";
 import AdminUsers from "./pages/admin/Users";
+import AdminLocations from "./pages/admin/Locations";
 import AdminRecommendations from "./pages/admin/Recommendations";
 import AdminSettings from "./pages/admin/Settings";
 import AdminAccessLogs from "./pages/admin/AccessLogs";
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/admin/new-audit"       element={<AdminNewAudit />} />
         <Route path="/admin/audits"          element={<AdminAudits />} />
         <Route path="/admin/users"           element={<AdminUsers />} />
+        <Route path="/admin/locations"       element={<AdminLocations />} />
         <Route path="/admin/recommendations" element={<AdminRecommendations />} />
         <Route path="/admin/settings"        element={<AdminSettings />} />
         <Route path="/admin/access-logs"     element={<AdminAccessLogs />} />

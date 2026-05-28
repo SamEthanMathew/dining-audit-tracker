@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { callAdminUserMgmt, listLocations, listUsers } from "../../lib/api";
 import type { Location, User } from "../../lib/api";
+import { supabase } from "../../lib/supabase";
 
 export default function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
@@ -85,6 +86,22 @@ export default function AdminUsers() {
     }
   }
 
+  async function editUsername(u: User) {
+    const next = window.prompt(`Username for ${u.email}:`, u.username ?? "");
+    if (next === null) return;
+    const trimmed = next.trim();
+    setBusy(true);
+    try {
+      const { error } = await supabase.from("users").update({ username: trimmed || null }).eq("id", u.id);
+      if (error) throw error;
+      await reload();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -143,6 +160,7 @@ export default function AdminUsers() {
         <table className="min-w-full text-sm">
           <thead className="bg-slate-100 text-slate-700">
             <tr>
+              <th className="text-left px-3 py-2">Username</th>
               <th className="text-left px-3 py-2">Email</th>
               <th className="text-left px-3 py-2">Name</th>
               <th className="text-left px-3 py-2">Role</th>
@@ -154,6 +172,11 @@ export default function AdminUsers() {
           <tbody>
             {users.map((u) => (
               <tr key={u.id} className="border-t border-slate-200">
+                <td className="px-3 py-2 font-mono text-xs">
+                  <button className="text-cmu hover:underline" onClick={() => editUsername(u)} disabled={busy}>
+                    {u.username ?? <span className="italic text-slate-400">set…</span>}
+                  </button>
+                </td>
                 <td className="px-3 py-2">{u.email}</td>
                 <td className="px-3 py-2">{u.full_name}</td>
                 <td className="px-3 py-2">
@@ -186,7 +209,7 @@ export default function AdminUsers() {
               </tr>
             ))}
             {users.length === 0 && (
-              <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-500">No users yet.</td></tr>
+              <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-500">No users yet.</td></tr>
             )}
           </tbody>
         </table>

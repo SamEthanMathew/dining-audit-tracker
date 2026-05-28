@@ -6,34 +6,75 @@ export type Audit = Tables<"audits">;
 export type Settings = Tables<"settings">;
 export type Location = Tables<"locations">;
 export type User = Tables<"users">;
-
-export type SubmitAuditPayload = {
-  location_id?: string;
-  audit_date?: string;
-  audit_mode?: "count" | "weight";
-  landfill_total: number;
-  landfill_contamination: number;
-  landfill_notes?: string;
-  bottles_cans_total: number;
-  bottles_cans_contamination: number;
-  bottles_cans_food_present: boolean;
-  bottles_cans_notes?: string;
-  compost_total: number;
-  compost_contamination: number;
-  compost_notes?: string;
-  cardboard_total: number;
-  cardboard_contamination: number;
-  cardboard_notes?: string;
-  general_comments?: string;
-};
+export type AuditPhoto = Tables<"audit_photos">;
 
 export type SubmitAuditResult = {
   audit: Audit;
   recommendations: Recommendation[];
 };
 
+export type AuditPhotoPayload = { stream: string; storage_path: string };
+
+export type SubmitAuditPayload = {
+  // common
+  audit_form_mode?: "simple" | "detailed";
+  audit_date?: string;
+  audit_mode?: "count" | "weight";
+  location_id?: string;
+  submitter_name?: string;
+  is_sustainability_champion?: boolean;
+  done_by_dining_team?: boolean;
+
+  // detailed-mode fields
+  landfill_total?: number;
+  landfill_contamination?: number;
+  bottles_cans_total?: number;
+  bottles_cans_contamination?: number;
+  bottles_cans_food_present?: boolean;
+  compost_total?: number;
+  compost_contamination?: number;
+  cardboard_total?: number;
+  cardboard_contamination?: number;
+
+  // simple-mode fields
+  simple_responses?: Record<string, Record<string, boolean>>;
+  landfill_contamination_pct?: number;
+  landfill_total_dustbins?: number;
+  landfill_cleared_contamination?: boolean;
+  bottles_cans_contamination_pct?: number;
+  bottles_cans_total_dustbins?: number;
+  bottles_cans_cleared_contamination?: boolean;
+  compost_contamination_pct?: number;
+  compost_total_dustbins?: number;
+  compost_cleared_contamination?: boolean;
+  cardboard_contamination_pct?: number;
+  cardboard_total_dustbins?: number;
+  cardboard_cleared_contamination?: boolean;
+  cardboard_to_baler?: boolean | null;
+
+  // shared descriptions
+  landfill_additional_description?: string;
+  bottles_cans_additional_description?: string;
+  compost_additional_description?: string;
+  cardboard_additional_description?: string;
+  general_comments?: string;
+
+  // sustainability survey (non-scored)
+  reuse_program?: boolean | null;
+  energy_conservation_plan?: boolean | null;
+  water_conservation_plan?: boolean | null;
+  donates_forinto?: boolean | null;
+  donates_cmu_food_pantry?: boolean | null;
+  sustainability_contact?: { name?: string; phone?: string; email?: string } | null;
+
+  // photos uploaded prior to RPC
+  photos?: AuditPhotoPayload[];
+};
+
 export async function submitAudit(payload: SubmitAuditPayload): Promise<SubmitAuditResult> {
-  const { data, error } = await supabase.rpc("submit_audit", { payload: payload as unknown as Json });
+  const { data, error } = await supabase.rpc("submit_audit", {
+    payload: payload as unknown as Json,
+  });
   if (error) {
     if (error.message?.includes("already_submitted_this_week")) {
       throw new Error("already_submitted_this_week");
@@ -41,6 +82,15 @@ export async function submitAudit(payload: SubmitAuditPayload): Promise<SubmitAu
     throw new Error(error.message);
   }
   return data as unknown as SubmitAuditResult;
+}
+
+export async function triggerEmail(auditId: string): Promise<void> {
+  // Fire-and-forget — failures shouldn't block the rep.
+  try {
+    await supabase.functions.invoke("send_audit_email", { body: { audit_id: auditId } });
+  } catch (e) {
+    console.warn("email trigger failed (will retry via outbox)", e);
+  }
 }
 
 export async function listMyAudits(): Promise<Audit[]> {
@@ -60,9 +110,9 @@ export async function listAllAuditsForAdmin(filters: {
 }): Promise<Audit[]> {
   let q = supabase.from("audits").select("*").order("audit_date", { ascending: false });
   if (filters.locationId) q = q.eq("location_id", filters.locationId);
-  if (filters.fromDate)   q = q.gte("audit_date", filters.fromDate);
-  if (filters.toDate)     q = q.lte("audit_date", filters.toDate);
-  if (filters.role)       q = q.eq("submitted_by_role", filters.role);
+  if (filters.fromDate) q = q.gte("audit_date", filters.fromDate);
+  if (filters.toDate) q = q.lte("audit_date", filters.toDate);
+  if (filters.role) q = q.eq("submitted_by_role", filters.role);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
   return data ?? [];
@@ -86,6 +136,12 @@ export async function listLocations(activeOnly = true): Promise<Location[]> {
   const { data, error } = await q;
   if (error) throw new Error(error.message);
   return data ?? [];
+}
+
+export async function updateLocation(payload: Partial<Location>): Promise<Location> {
+  const { data, error } = await supabase.rpc("update_location", { payload: payload as unknown as Json });
+  if (error) throw new Error(error.message);
+  return data as Location;
 }
 
 export async function listRecommendations(): Promise<Recommendation[]> {
@@ -178,4 +234,19 @@ export async function callAdminUserMgmt(payload: AdminUserMgmtOp): Promise<any> 
     throw new Error(msg);
   }
   return data;
+}
+
+export async function resolveUsername(username: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc("resolve_username", { p_username: username });
+  if (error) return null;
+  return (data as unknown as string) ?? null;
+}
+
+export async function listAuditPhotos(auditId: string): Promise<AuditPhoto[]> {
+  const { data, error } = await supabase
+    .from("audit_photos")
+    .select("*")
+    .eq("audit_id", auditId);
+  if (error) throw new Error(error.message);
+  return data ?? [];
 }
