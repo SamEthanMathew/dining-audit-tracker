@@ -18,17 +18,32 @@ type AuthState = {
 
 const Ctx = createContext<AuthState | null>(null);
 
+// Hard cap on auth bootstrap so a stuck network/localStorage can't freeze the app.
+const AUTH_BOOT_TIMEOUT_MS = 6000;
+
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: () => T): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback()), ms)),
+  ]);
+}
+
 async function loadProfile(uid: string): Promise<Profile | null> {
-  const { data, error } = await supabase
-    .from("users")
-    .select("id, full_name, email, role, location_id, active")
-    .eq("id", uid)
-    .maybeSingle();
-  if (error) {
-    console.error("profile load error", error);
+  try {
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, full_name, email, role, location_id, active")
+      .eq("id", uid)
+      .maybeSingle();
+    if (error) {
+      console.error("profile load error", error);
+      return null;
+    }
+    return data;
+  } catch (e) {
+    console.error("profile load threw", e);
     return null;
   }
-  return data;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -38,12 +53,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!active) return;
-      setSession(data.session);
-      if (data.session?.user.id) setProfile(await loadProfile(data.session.user.id));
-      setLoading(false);
-    });
+    (async () => {
+      try {
+        const got = await withTimeout(
+          supabase.auth.getSession().then((r) => r.data.session ?? null),
+          AUTH_BOOT_TIMEOUT_MS,
+          () => null
+        );
+        if (!active) return;
+        setSession(got);
+        if (got?.user?.id) setProfile(await loadProfile(got.user.id));
+      } catch (e) {
+        console.error("auth bootstrap failed", e);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, s) => {
       if (!active) return;
       setSession(s);
@@ -65,12 +91,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { error, data } = await supabase.auth.signInWithPassword({ email, password });
         if (error) return { error: error.message };
         if (data.user) {
-          await supabase.rpc("log_event", { action: "login", metadata: { email } });
+          supabase.rpc("log_event", { action: "login", metadata: { email } }).then(() => {}, () => {});
         }
         return { error: null };
       },
       async signOut() {
-        await supabase.rpc("log_event", { action: "logout", metadata: null });
+        try {
+          await supabase.rpc("log_event", { action: "logout", metadata: null });
+        } catch { /* best-effort */ }
         await supabase.auth.signOut();
       },
       async refreshProfile() {
@@ -98,7 +126,14 @@ export function ProtectedRoute({
 }) {
   const { session, profile, loading } = useAuth();
   const loc = useLocation();
-  if (loading) return <div className="p-8 text-slate-500">Loading…</div>;
+  if (loading) {
+    return (
+      <div className="p-8 text-slate-500">
+        Loading…
+        <p className="text-xs text-slate-400 mt-2">If this stays for more than a few seconds, <button onClick={resetAuth} className="text-cmu hover:underline">reset your session</button>.</p>
+      </div>
+    );
+  }
   if (!session) return <Navigate to="/login" state={{ from: loc }} replace />;
   if (!profile || !profile.active) {
     return (
@@ -111,4 +146,13 @@ export function ProtectedRoute({
     return <Navigate to={profile.role === "admin" ? "/admin" : "/audit"} replace />;
   }
   return <>{children}</>;
+}
+
+function resetAuth() {
+  try {
+    Object.keys(localStorage).forEach((k) => {
+      if (k.startsWith("sb-") || k.includes("supabase")) localStorage.removeItem(k);
+    });
+  } catch { /* ignore */ }
+  window.location.href = "/login";
 }

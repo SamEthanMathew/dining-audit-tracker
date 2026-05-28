@@ -11,7 +11,13 @@ export default function Audit() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [result, setResult] = useState<SubmitAuditResult | null>(null);
 
-  useEffect(() => { fetchSettings().then(setSettings).catch(console.error); }, []);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  useEffect(() => {
+    fetchSettings().then(setSettings).catch((e) => {
+      console.error("settings fetch failed", e);
+      setSettingsError(e?.message ?? "Could not load settings.");
+    });
+  }, []);
 
   async function handle(payload: SubmitAuditPayload) {
     try {
@@ -26,6 +32,12 @@ export default function Audit() {
     }
   }
 
+  if (settingsError) return (
+    <div className="space-y-2">
+      <p className="text-red-700">Couldn't load settings: {settingsError}</p>
+      <button className="btn-ghost" onClick={() => window.location.reload()}>Retry</button>
+    </div>
+  );
   if (!settings) return <p className="text-slate-500">Loading…</p>;
 
   if (result) {

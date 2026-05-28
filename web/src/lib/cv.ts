@@ -4,6 +4,9 @@
 
 type Detection = { class: string; score: number };
 
+// Hard cap so a stuck TF.js load or detect call can't freeze the photo state.
+const CV_TIMEOUT_MS = 5000;
+
 let modelP: Promise<any> | null = null;
 
 async function loadModel(): Promise<any> {
@@ -19,6 +22,13 @@ async function loadModel(): Promise<any> {
   return modelP;
 }
 
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error("cv timeout")), ms)),
+  ]);
+}
+
 const BIN_PROXIES = new Set([
   // COCO doesn't have "trash bin"; these are the realistic stand-ins.
   "bottle", "cup", "wine glass", "bowl",
@@ -31,20 +41,24 @@ const BIN_PROXIES = new Set([
 
 export async function detectBinish(file: File): Promise<{ ok: boolean; label: string }> {
   try {
-    const url = URL.createObjectURL(file);
-    try {
-      const img = await loadImage(url);
-      const model = await loadModel();
-      const preds = (await model.detect(img)) as Detection[];
-      if (preds.length === 0) return { ok: false, label: "no objects detected" };
-      const hit = preds.find((p) => BIN_PROXIES.has(p.class));
-      if (hit) return { ok: true, label: hit.class };
-      return { ok: false, label: preds.slice(0, 2).map((p) => p.class).join(", ") };
-    } finally {
-      URL.revokeObjectURL(url);
-    }
+    return await withTimeout(detectInner(file), CV_TIMEOUT_MS);
   } catch {
     return { ok: true, label: "skipped" };
+  }
+}
+
+async function detectInner(file: File): Promise<{ ok: boolean; label: string }> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(url);
+    const model = await loadModel();
+    const preds = (await model.detect(img)) as Detection[];
+    if (preds.length === 0) return { ok: false, label: "no objects detected" };
+    const hit = preds.find((p) => BIN_PROXIES.has(p.class));
+    if (hit) return { ok: true, label: hit.class };
+    return { ok: false, label: preds.slice(0, 2).map((p) => p.class).join(", ") };
+  } finally {
+    URL.revokeObjectURL(url);
   }
 }
 

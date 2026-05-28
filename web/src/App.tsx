@@ -16,7 +16,23 @@ import AdminAccessLogs from "./pages/admin/AccessLogs";
 
 function HomeRedirect() {
   const { profile, loading } = useAuth();
-  if (loading) return <div className="p-8 text-slate-500">Loading…</div>;
+  if (loading) {
+    return (
+      <div className="p-8 text-slate-500">
+        Loading…
+        <p className="text-xs text-slate-400 mt-2">
+          Stuck?{" "}
+          <button
+            className="text-cmu hover:underline"
+            onClick={() => {
+              try { Object.keys(localStorage).forEach(k => { if (k.startsWith("sb-") || k.includes("supabase")) localStorage.removeItem(k); }); } catch {}
+              window.location.href = "/login";
+            }}
+          >Reset session and sign in again</button>.
+        </p>
+      </div>
+    );
+  }
   if (!profile) return <Navigate to="/login" replace />;
   return <Navigate to={profile.role === "admin" ? "/admin" : "/audit"} replace />;
 }
