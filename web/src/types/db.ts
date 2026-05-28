@@ -213,6 +213,7 @@ export type Database = {
         Args: { audit_id: string; reason: string };
         Returns: Database["public"]["Tables"]["audits"]["Row"];
       };
+      create_location: { Args: { payload: Json }; Returns: Database["public"]["Tables"]["locations"]["Row"] };
       recommended_audit_window: { Args: { loc: string }; Returns: string };
       resolve_username: { Args: { p_username: string }; Returns: string };
       submit_audit: { Args: { payload: Json }; Returns: Json };

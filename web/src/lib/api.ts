@@ -144,6 +144,12 @@ export async function updateLocation(payload: Partial<Location>): Promise<Locati
   return data as Location;
 }
 
+export async function createLocation(payload: Partial<Location>): Promise<Location> {
+  const { data, error } = await supabase.rpc("create_location", { payload: payload as unknown as Json });
+  if (error) throw new Error(error.message);
+  return data as Location;
+}
+
 export async function listRecommendations(): Promise<Recommendation[]> {
   const { data, error } = await supabase
     .from("recommendations")
