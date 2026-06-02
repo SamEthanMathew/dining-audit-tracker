@@ -43,6 +43,7 @@ type StreamState = {
   description: string;
   q: Record<string, boolean>;
   photos: string[];
+  photos_pending: number;
 };
 
 const emptyStream = (): StreamState => ({
@@ -52,6 +53,7 @@ const emptyStream = (): StreamState => ({
   description: "",
   q: {},
   photos: [],
+  photos_pending: 0,
 });
 
 export type SimpleAuditFormProps = {
@@ -121,6 +123,10 @@ export default function SimpleAuditForm({
     });
   }
 
+  function streamPendingPhotos(): number {
+    return landfill.photos_pending + bottles.photos_pending + compost.photos_pending + cardboard.photos_pending;
+  }
+
   function validate(): string | null {
     if (!locationId) return "Pick a location.";
     if (!submitterName.trim()) return "Your name is required.";
@@ -130,6 +136,9 @@ export default function SimpleAuditForm({
       }
     }
     if (cardboardToBaler === null) return "Tell us whether cardboard is being sent to the baler.";
+    if (streamPendingPhotos() > 0) {
+      return `Photos are still uploading (${streamPendingPhotos()} left). Wait a moment, then resubmit.`;
+    }
     return null;
   }
 
@@ -279,8 +288,11 @@ export default function SimpleAuditForm({
 
       {error && <div className="text-red-700 bg-red-50 border border-red-200 px-4 py-2 rounded">{error}</div>}
 
-      <div className="flex justify-end">
-        <button className="btn-primary" type="submit" disabled={submitting}>
+      <div className="flex justify-end items-center gap-3">
+        {streamPendingPhotos() > 0 && (
+          <span className="text-xs text-amber-700">{streamPendingPhotos()} photo{streamPendingPhotos() === 1 ? "" : "s"} still uploading…</span>
+        )}
+        <button className="btn-primary" type="submit" disabled={submitting || streamPendingPhotos() > 0}>
           {submitting ? "Submitting…" : "Submit audit"}
         </button>
       </div>
@@ -353,7 +365,7 @@ function StreamCard({
         <PhotoCapture
           submissionId={submissionId}
           stream={streamKey}
-          onChange={(paths) => setState((prev) => ({ ...prev, photos: paths }))}
+          onChange={(paths, pending) => setState((prev) => ({ ...prev, photos: paths, photos_pending: pending }))}
         />
       </div>
 

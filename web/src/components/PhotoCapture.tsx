@@ -19,13 +19,15 @@ export default function PhotoCapture({
 }: {
   submissionId: string;
   stream: string;
-  onChange: (paths: string[]) => void;
+  onChange: (paths: string[], pending: number) => void;
 }) {
   const [photos, setPhotos] = useState<PhotoState[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    onChange(photos.filter((p) => p.status === "uploaded" && p.storagePath).map((p) => p.storagePath!));
+    const paths = photos.filter((p) => p.status === "uploaded" && p.storagePath).map((p) => p.storagePath!);
+    const pending = photos.filter((p) => p.status === "uploading").length;
+    onChange(paths, pending);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photos]);
 

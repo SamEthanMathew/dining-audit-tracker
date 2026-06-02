@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { listAllAuditsForAdmin, listLocations, nullifyAudit } from "../../lib/api";
 import type { Audit, Location } from "../../lib/api";
 import GradeBadge from "../../components/GradeBadge";
+import AuditDetailView from "../../components/AuditDetailView";
 import { STREAM_LABELS } from "../../lib/grades";
 
 export default function AdminAudits() {
@@ -117,31 +118,9 @@ export default function AdminAudits() {
 
       {open && (
         <div className="fixed inset-0 bg-black/40 z-10 flex items-center justify-center p-4" onClick={() => setOpen(null)}>
-          <div className="card max-w-2xl w-full p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-xl font-semibold">Audit detail — {open.audit_date} · {locName(open.location_id)}</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
-              {(["landfill", "bottles_cans", "compost", "cardboard"] as const).map((s) => {
-                const total = (open as any)[`${s}_total`] as number;
-                const contam = (open as any)[`${s}_contamination`] as number;
-                const g = ((open.computed_grades ?? {}) as Record<string, string>)[s];
-                return (
-                  <div key={s} className="p-2 rounded border border-slate-200">
-                    <div className="font-medium">{STREAM_LABELS[s]}</div>
-                    <div className="text-xs text-slate-500">
-                      {contam} / {total} ({total ? ((contam / total) * 100).toFixed(1) : "0"}%)
-                    </div>
-                    <div className="mt-1"><GradeBadge grade={g} /></div>
-                  </div>
-                );
-              })}
-            </div>
-            {open.general_comments && (
-              <p className="text-sm text-slate-700 italic">"{open.general_comments}"</p>
-            )}
-            {open.nullified && (
-              <div className="text-sm text-red-700">Nullified: {open.nullified_reason}</div>
-            )}
-            <div className="flex justify-between">
+          <div className="card max-w-3xl w-full p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <AuditDetailView audit={open} location={locations.find(l => l.id === open.location_id)} />
+            <div className="flex justify-between pt-3 border-t border-slate-200">
               {!open.nullified && (
                 <button className="text-red-700 hover:underline text-sm" onClick={handleNullify}>
                   Nullify this audit
