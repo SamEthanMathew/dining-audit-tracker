@@ -2,9 +2,8 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth, ProtectedRoute } from "./lib/auth";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
-import Audit from "./pages/Audit";
-import MyAudits from "./pages/MyAudits";
-import Leaderboard from "./pages/Leaderboard";
+import PublicSubmit from "./pages/PublicSubmit";
+import PublicLeaderboard from "./pages/PublicLeaderboard";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminNewAudit from "./pages/admin/NewAudit";
 import AdminAudits from "./pages/admin/AuditsLog";
@@ -13,42 +12,23 @@ import AdminLocations from "./pages/admin/Locations";
 import AdminRecommendations from "./pages/admin/Recommendations";
 import AdminSettings from "./pages/admin/Settings";
 import AdminAccessLogs from "./pages/admin/AccessLogs";
+import Leaderboard from "./pages/Leaderboard";
 
 function HomeRedirect() {
   const { profile, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="p-8 text-slate-500">
-        Loading…
-        <p className="text-xs text-slate-400 mt-2">
-          Stuck?{" "}
-          <button
-            className="text-cmu hover:underline"
-            onClick={() => {
-              try { Object.keys(localStorage).forEach(k => { if (k.startsWith("sb-") || k.includes("supabase")) localStorage.removeItem(k); }); } catch {}
-              window.location.href = "/login";
-            }}
-          >Reset session and sign in again</button>.
-        </p>
-      </div>
-    );
-  }
-  if (!profile) return <Navigate to="/login" replace />;
-  return <Navigate to={profile.role === "admin" ? "/admin" : "/audit"} replace />;
+  if (loading) return null;
+  if (profile?.role === "admin") return <Navigate to="/admin" replace />;
+  return <PublicSubmit />;
 }
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/" element={<HomeRedirect />} />
-
-      {/* Rep + admin both can view */}
-      <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-        <Route path="/audit"       element={<Audit />} />
-        <Route path="/my-audits"   element={<MyAudits />} />
-        <Route path="/leaderboard" element={<Leaderboard />} />
-      </Route>
+      {/* Public surface */}
+      <Route path="/"            element={<HomeRedirect />} />
+      <Route path="/submit"      element={<PublicSubmit />} />
+      <Route path="/leaderboard" element={<PublicLeaderboard />} />
+      <Route path="/login"       element={<Login />} />
 
       {/* Admin-only */}
       <Route element={<ProtectedRoute roles={["admin"]}><Layout admin /></ProtectedRoute>}>
@@ -60,9 +40,10 @@ export default function App() {
         <Route path="/admin/recommendations" element={<AdminRecommendations />} />
         <Route path="/admin/settings"        element={<AdminSettings />} />
         <Route path="/admin/access-logs"     element={<AdminAccessLogs />} />
+        <Route path="/admin/leaderboard"     element={<Leaderboard />} />
       </Route>
 
-      <Route path="*" element={<HomeRedirect />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
