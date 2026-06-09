@@ -130,12 +130,6 @@ export default function SimpleAuditForm({
   function validate(): string | null {
     if (!locationId) return "Pick a location.";
     if (!submitterName.trim()) return "Your name is required.";
-    for (const [key, s] of [["landfill", landfill], ["bottles_cans", bottles], ["compost", compost], ["cardboard", cardboard]] as const) {
-      if (streamHasBadAnswer(s, key) && !s.description.trim()) {
-        return `Additional Description is required for ${STREAM_LABEL[key]} since you flagged contamination.`;
-      }
-    }
-    if (cardboardToBaler === null) return "Tell us whether cardboard is being sent to the baler.";
     if (streamPendingPhotos() > 0) {
       return `Photos are still uploading (${streamPendingPhotos()} left). Wait a moment, then resubmit.`;
     }
@@ -256,7 +250,7 @@ export default function SimpleAuditForm({
       <StreamCard streamKey="compost"      state={compost}   setState={setCompost}   submissionId={submissionId} />
       <StreamCard streamKey="cardboard"    state={cardboard} setState={setCardboard} submissionId={submissionId}>
         <div className="mt-3 p-3 bg-slate-50 rounded">
-          <div className="text-sm font-medium mb-2">Is the cardboard being sent to the baler? <span className="text-red-600">*</span></div>
+          <div className="text-sm font-medium mb-2">Is the cardboard being sent to the baler? <span className="text-slate-400 font-normal">(optional)</span></div>
           <div className="flex gap-2">
             <YesNoButton selected={cardboardToBaler === true}  onClick={() => setCardboardToBaler(true)}  label="Yes" />
             <YesNoButton selected={cardboardToBaler === false} onClick={() => setCardboardToBaler(false)} label="No" />
@@ -371,8 +365,7 @@ function StreamCard({
 
       <div>
         <label className="label">
-          Additional Description {hasBadAnswer && <span className="text-red-600">*</span>}
-          {!hasBadAnswer && <span className="text-slate-400"> (optional)</span>}
+          Additional Description <span className="text-slate-400 font-normal">(optional)</span>
         </label>
         <textarea
           rows={2}
@@ -407,6 +400,76 @@ function YesNoButton({ selected, onClick, label }: { selected: boolean; onClick:
   );
 }
 
+type SurveyQuestion = {
+  prompt: string;
+  yesLabel: string;
+  noLabel: string;
+};
+
+const SURVEY_QUESTIONS: Record<string, SurveyQuestion> = {
+  forinto: {
+    prompt: "Does this location donate leftover food to Forinto food rescue?",
+    yesLabel: "Yes — I care about fighting hunger",
+    noLabel: "Not yet",
+  },
+  pantry: {
+    prompt: "Does this location donate to the CMU Food Pantry?",
+    yesLabel: "Yes — I want to support our students",
+    noLabel: "Not yet",
+  },
+  reuse: {
+    prompt: "Does this location have a reuse program in place?",
+    yesLabel: "Yes — I believe in cutting waste at the source",
+    noLabel: "Not yet",
+  },
+  energy: {
+    prompt: "Does the kitchen have an energy conservation plan?",
+    yesLabel: "Yes — I want to conserve energy",
+    noLabel: "Not yet",
+  },
+  water: {
+    prompt: "Does the kitchen have a water conservation plan?",
+    yesLabel: "Yes — I want to conserve water",
+    noLabel: "Not yet",
+  },
+};
+
+function SurveyItem({
+  q, value, onSet,
+}: {
+  q: SurveyQuestion;
+  value: boolean | null;
+  onSet: (v: boolean | null) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="text-sm font-medium text-slate-800">{q.prompt}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => onSet(value === true ? null : true)}
+          className={
+            "px-3 py-2 rounded-md text-sm border text-left transition " +
+            (value === true
+              ? "bg-emerald-600 text-white border-emerald-700"
+              : "bg-white text-slate-800 border-slate-300 hover:bg-emerald-50 hover:border-emerald-300")
+          }
+        >{q.yesLabel}</button>
+        <button
+          type="button"
+          onClick={() => onSet(value === false ? null : false)}
+          className={
+            "px-3 py-2 rounded-md text-sm border text-left transition " +
+            (value === false
+              ? "bg-slate-700 text-white border-slate-800"
+              : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50")
+          }
+        >{q.noLabel}</button>
+      </div>
+    </div>
+  );
+}
+
 function SustainabilitySurvey(props: {
   reuseProgram: boolean | null; setReuseProgram: (v: boolean | null) => void;
   energyPlan: boolean | null;   setEnergyPlan: (v: boolean | null) => void;
@@ -418,32 +481,19 @@ function SustainabilitySurvey(props: {
   contactPhone: string;         setContactPhone: (v: string) => void;
   contactEmail: string;         setContactEmail: (v: string) => void;
 }) {
-  const tri = (label: string, value: boolean | null, set: (v: boolean | null) => void) => (
-    <div className="flex items-center justify-between gap-3 text-sm">
-      <span>{label}</span>
-      <div className="flex gap-2 shrink-0">
-        <YesNoButton selected={value === true}  onClick={() => set(true)}  label="Yes" />
-        <YesNoButton selected={value === false} onClick={() => set(false)} label="No" />
-        <button
-          type="button"
-          onClick={() => set(null)}
-          className={"px-3 py-1 rounded-md text-sm border " + (value === null ? "bg-slate-200" : "bg-white text-slate-500 border-slate-300 hover:bg-slate-50")}
-        >Skip</button>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="card p-5 space-y-3">
+    <div className="card p-5 space-y-4">
       <div className="flex items-baseline justify-between">
         <h3 className="text-lg font-semibold">Sustainability programs</h3>
-        <span className="text-xs text-slate-500">Optional — not scored</span>
+        <span className="text-xs text-slate-500">All optional — not scored</span>
       </div>
-      {tri("Donates leftover food to Forinto food rescue", props.donatesForinto, props.setDonatesForinto)}
-      {tri("Donates to the CMU Food Pantry",                props.donatesPantry,  props.setDonatesPantry)}
-      {tri("Reuse program in place at this location",       props.reuseProgram,   props.setReuseProgram)}
-      {tri("Energy conservation plan in the kitchen",       props.energyPlan,     props.setEnergyPlan)}
-      {tri("Water conservation plan in the kitchen",        props.waterPlan,      props.setWaterPlan)}
+      <p className="text-xs text-slate-500 -mt-2">Tap a button to answer. Tap again to clear.</p>
+
+      <SurveyItem q={SURVEY_QUESTIONS.forinto} value={props.donatesForinto} onSet={props.setDonatesForinto} />
+      <SurveyItem q={SURVEY_QUESTIONS.pantry}  value={props.donatesPantry}  onSet={props.setDonatesPantry} />
+      <SurveyItem q={SURVEY_QUESTIONS.reuse}   value={props.reuseProgram}   onSet={props.setReuseProgram} />
+      <SurveyItem q={SURVEY_QUESTIONS.energy}  value={props.energyPlan}     onSet={props.setEnergyPlan} />
+      <SurveyItem q={SURVEY_QUESTIONS.water}   value={props.waterPlan}      onSet={props.setWaterPlan} />
 
       <label className="flex items-center gap-2 text-sm pt-2 border-t border-slate-200">
         <input type="checkbox" checked={props.wantsContact} onChange={(e) => props.setWantsContact(e.target.checked)} />
