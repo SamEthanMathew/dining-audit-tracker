@@ -10,6 +10,7 @@ type PhotoState = {
   storagePath?: string;
   errorMessage?: string;
   cv?: { ok: boolean; label: string };
+  cvRunning?: boolean;
 };
 
 export default function PhotoCapture({
@@ -38,6 +39,26 @@ export default function PhotoCapture({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  async function processOne(file: File, id: string) {
+    // Kick off the upload first.
+    try {
+      const storagePath = await uploadAuditPhoto(submissionId, stream, file);
+      // Flip status to "uploaded" the moment upload finishes — don't wait for CV.
+      setPhotos((prev) => prev.map((p) =>
+        p.id === id ? { ...p, status: "uploaded", storagePath, cvRunning: true } : p
+      ));
+      // Run CV in the background; never block the form.
+      detectBinish(file).then(
+        (cv) => setPhotos((prev) => prev.map((p) => p.id === id ? { ...p, cv, cvRunning: false } : p)),
+        () =>   setPhotos((prev) => prev.map((p) => p.id === id ? { ...p, cvRunning: false } : p))
+      );
+    } catch (e: any) {
+      setPhotos((prev) => prev.map((p) =>
+        p.id === id ? { ...p, status: "error", errorMessage: e?.message ?? "upload failed" } : p
+      ));
+    }
+  }
+
   async function addFiles(files: FileList | null) {
     if (!files) return;
     const remaining = 5 - photos.length;
@@ -46,31 +67,8 @@ export default function PhotoCapture({
       const id = crypto.randomUUID();
       const previewUrl = URL.createObjectURL(f);
       setPhotos((prev) => [...prev, { id, file: f, previewUrl, status: "uploading" }]);
-
-      // upload + CV in parallel
-      const upload = uploadAuditPhoto(submissionId, stream, f);
-      const cv = detectBinish(f);
-      const [uploadResult, cvResult] = await Promise.allSettled([upload, cv]);
-
-      setPhotos((prev) =>
-        prev.map((p) => {
-          if (p.id !== id) return p;
-          if (uploadResult.status === "fulfilled") {
-            return {
-              ...p,
-              status: "uploaded",
-              storagePath: uploadResult.value,
-              cv: cvResult.status === "fulfilled" ? cvResult.value : undefined,
-            };
-          }
-          return {
-            ...p,
-            status: "error",
-            errorMessage:
-              uploadResult.status === "rejected" ? (uploadResult.reason as Error).message : "upload failed",
-          };
-        })
-      );
+      // Fire and forget — multiple uploads run in parallel
+      processOne(f, id);
     }
     if (inputRef.current) inputRef.current.value = "";
   }
@@ -81,6 +79,12 @@ export default function PhotoCapture({
       if (p) URL.revokeObjectURL(p.previewUrl);
       return prev.filter((x) => x.id !== id);
     });
+  }
+
+  function retryOne(p: PhotoState) {
+    const id = p.id;
+    setPhotos((prev) => prev.map((x) => x.id === id ? { ...x, status: "uploading", errorMessage: undefined } : x));
+    processOne(p.file, id);
   }
 
   return (
@@ -101,18 +105,25 @@ export default function PhotoCapture({
             >
               ×
             </button>
-            <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-1 py-0.5 rounded-b-lg flex items-center justify-between">
+            <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] px-1 py-0.5 rounded-b-lg flex items-center justify-between gap-1">
               <span>
                 {p.status === "uploading" && "↑"}
-                {p.status === "uploaded" && (p.cv?.ok ? "✓" : "⚠")}
+                {p.status === "uploaded" && (p.cvRunning ? "✓" : (p.cv?.ok ?? true) ? "✓" : "⚠")}
                 {p.status === "error" && "✗"}
               </span>
               <span className="truncate">
-                {p.status === "uploading"
-                  ? "uploading…"
-                  : p.cv?.label ?? (p.status === "error" ? p.errorMessage : "")}
+                {p.status === "uploading" && "uploading…"}
+                {p.status === "uploaded" && (p.cvRunning ? "saved" : "saved")}
+                {p.status === "error" && (p.errorMessage ?? "failed")}
               </span>
             </div>
+            {p.status === "error" && (
+              <button
+                type="button"
+                onClick={() => retryOne(p)}
+                className="absolute -bottom-6 left-0 right-0 text-[10px] text-cmu hover:underline"
+              >Retry</button>
+            )}
           </div>
         ))}
         {photos.length < 5 && (
@@ -135,7 +146,7 @@ export default function PhotoCapture({
         className="hidden"
         onChange={(e) => addFiles(e.target.files)}
       />
-      <p className="text-xs text-slate-500">Up to 5 photos. We'll flag any photo that doesn't look like a bin (a soft warning only — you can still submit).</p>
+      <p className="text-xs text-slate-500">Up to 5 photos. Each photo uploads in the background. If one fails, tap Retry.</p>
     </div>
   );
 }

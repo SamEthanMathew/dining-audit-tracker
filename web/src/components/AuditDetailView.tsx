@@ -65,7 +65,7 @@ export default function AuditDetailView({ audit, location }: { audit: Audit; loc
   for (const p of photos) (photosByStream[p.stream as Stream] ??= []).push(p);
 
   return (
-    <div className="space-y-5 max-h-[80vh] overflow-y-auto pr-1">
+    <div className="space-y-5">
       <header className="space-y-1">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="text-xl font-semibold">

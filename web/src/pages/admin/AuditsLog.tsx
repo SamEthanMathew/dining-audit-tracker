@@ -4,10 +4,12 @@ import type { Audit, Location } from "../../lib/api";
 import GradeBadge from "../../components/GradeBadge";
 import AuditDetailView from "../../components/AuditDetailView";
 import { STREAM_LABELS } from "../../lib/grades";
+import { supabase } from "../../lib/supabase";
 
 export default function AdminAudits() {
   const [audits, setAudits] = useState<Audit[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [photoCounts, setPhotoCounts] = useState<Record<string, number>>({});
   const [filters, setFilters] = useState<{ locationId?: string; fromDate?: string; toDate?: string; role?: "rep" | "admin" }>({});
   const [open, setOpen] = useState<Audit | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +21,19 @@ export default function AdminAudits() {
       const [a, l] = await Promise.all([listAllAuditsForAdmin(filters), listLocations(false)]);
       setAudits(a);
       setLocations(l);
+      // Fetch photo counts per audit for the rendered list
+      const ids = a.map((x) => x.id);
+      if (ids.length > 0) {
+        const { data: photoRows } = await supabase
+          .from("audit_photos")
+          .select("audit_id")
+          .in("audit_id", ids);
+        const counts: Record<string, number> = {};
+        for (const r of photoRows ?? []) counts[r.audit_id] = (counts[r.audit_id] ?? 0) + 1;
+        setPhotoCounts(counts);
+      } else {
+        setPhotoCounts({});
+      }
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -84,41 +99,51 @@ export default function AdminAudits() {
             <tr>
               <th className="text-left px-3 py-2">Date</th>
               <th className="text-left px-3 py-2">Location</th>
-              <th className="text-left px-3 py-2">Role</th>
+              <th className="text-left px-3 py-2">Submitter</th>
               <th className="text-left px-3 py-2">Score</th>
               {(["landfill", "bottles_cans", "compost", "cardboard"] as const).map((s) => (
                 <th key={s} className="text-left px-3 py-2">{STREAM_LABELS[s]}</th>
               ))}
+              <th className="text-left px-3 py-2">📷</th>
               <th className="text-left px-3 py-2">Status</th>
             </tr>
           </thead>
           <tbody>
             {audits.map((a) => {
               const g = (a.computed_grades ?? {}) as Record<string, string>;
+              const photoCount = photoCounts[a.id] ?? 0;
               return (
                 <tr key={a.id} className="border-t border-slate-200 hover:bg-slate-50 cursor-pointer" onClick={() => setOpen(a)}>
-                  <td className="px-3 py-2">{a.audit_date}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{a.audit_date}</td>
                   <td className="px-3 py-2">{locName(a.location_id)}</td>
-                  <td className="px-3 py-2">{a.submitted_by_role}</td>
+                  <td className="px-3 py-2 text-xs">
+                    <div className="font-medium">{a.submitter_name || "(no name)"}</div>
+                    <div className="text-slate-500">{a.audit_form_mode} · {a.submitted_by_role}</div>
+                  </td>
                   <td className="px-3 py-2 font-semibold">{a.computed_score?.toFixed(0)}</td>
                   <td className="px-3 py-2"><GradeBadge grade={g.landfill} /></td>
                   <td className="px-3 py-2"><GradeBadge grade={g.bottles_cans} /></td>
                   <td className="px-3 py-2"><GradeBadge grade={g.compost} /></td>
                   <td className="px-3 py-2"><GradeBadge grade={g.cardboard} /></td>
+                  <td className="px-3 py-2 text-xs">
+                    {photoCount > 0
+                      ? <span className="font-medium text-cmu">{photoCount}</span>
+                      : <span className="text-slate-300">—</span>}
+                  </td>
                   <td className="px-3 py-2 text-xs">{a.nullified ? <span className="text-red-700">nullified</span> : "active"}</td>
                 </tr>
               );
             })}
             {audits.length === 0 && !loading && (
-              <tr><td colSpan={9} className="px-3 py-6 text-center text-slate-500">No audits match.</td></tr>
+              <tr><td colSpan={10} className="px-3 py-6 text-center text-slate-500">No audits match.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       {open && (
-        <div className="fixed inset-0 bg-black/40 z-10 flex items-center justify-center p-4" onClick={() => setOpen(null)}>
-          <div className="card max-w-3xl w-full p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/40 z-10 flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto" onClick={() => setOpen(null)}>
+          <div className="card max-w-3xl w-full my-2 p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
             <AuditDetailView audit={open} location={locations.find(l => l.id === open.location_id)} />
             <div className="flex justify-between pt-3 border-t border-slate-200">
               {!open.nullified && (

@@ -101,9 +101,22 @@ export default function SimpleAuditForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    listLocations().then(setLocations).catch((e) => setError(e.message));
-  }, []);
+  const [locationsLoading, setLocationsLoading] = useState(true);
+  const [locationsError, setLocationsError] = useState<string | null>(null);
+
+  function loadLocations() {
+    setLocationsLoading(true);
+    setLocationsError(null);
+    listLocations()
+      .then((rows) => {
+        setLocations(rows);
+        if (rows.length === 0) setLocationsError("No locations available. Please refresh.");
+      })
+      .catch((e) => setLocationsError(e.message ?? "Could not load locations."))
+      .finally(() => setLocationsLoading(false));
+  }
+
+  useEffect(() => { loadLocations(); }, []);
 
   useEffect(() => {
     if (!locationId) {
@@ -206,16 +219,27 @@ export default function SimpleAuditForm({
       <div className="card p-5 space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="label">Location</label>
+            <label className="label">Location <span className="text-red-600">*</span></label>
             <select
               className="input"
               value={locationId}
               onChange={(e) => setLocationId(e.target.value)}
-              disabled={lockLocation}
+              disabled={lockLocation || locationsLoading || locations.length === 0}
             >
-              <option value="">Select…</option>
+              <option value="">
+                {locationsLoading ? "Loading locations…" : locations.length === 0 ? "No locations available" : "Select…"}
+              </option>
               {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
+            {locationsError && (
+              <div className="text-xs text-red-700 mt-1 flex items-center gap-2">
+                <span>{locationsError}</span>
+                <button type="button" onClick={loadLocations} className="text-cmu hover:underline">Retry</button>
+              </div>
+            )}
+            {!locationsLoading && !locationsError && locations.length > 0 && (
+              <p className="text-xs text-slate-500 mt-1">{locations.length} locations available</p>
+            )}
             {recommendedWindow && (
               <p className="text-xs text-emerald-700 mt-1">
                 Suggested next window: <strong>{recommendedWindow}</strong>
