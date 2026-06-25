@@ -23,7 +23,8 @@ export default function PhotoCapture({
   onChange: (paths: string[], pending: number) => void;
 }) {
   const [photos, setPhotos] = useState<PhotoState[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const paths = photos.filter((p) => p.status === "uploaded" && p.storagePath).map((p) => p.storagePath!);
@@ -70,7 +71,8 @@ export default function PhotoCapture({
       // Fire and forget — multiple uploads run in parallel
       processOne(f, id);
     }
-    if (inputRef.current) inputRef.current.value = "";
+    if (cameraRef.current) cameraRef.current.value = "";
+    if (uploadRef.current) uploadRef.current.value = "";
   }
 
   function removeOne(id: string) {
@@ -126,19 +128,28 @@ export default function PhotoCapture({
             )}
           </div>
         ))}
-        {photos.length < 5 && (
+      </div>
+      {photos.length < 5 && (
+        <div className="flex flex-wrap gap-2 mb-2">
           <button
             type="button"
-            onClick={() => inputRef.current?.click()}
-            className="w-20 h-20 rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-500 hover:bg-slate-50"
+            onClick={() => cameraRef.current?.click()}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-300 bg-white text-sm text-slate-700 hover:bg-slate-50"
           >
-            <span className="text-xl">+</span>
-            <span className="text-xs">Photo</span>
+            📷 Take photo
           </button>
-        )}
-      </div>
+          <button
+            type="button"
+            onClick={() => uploadRef.current?.click()}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-300 bg-white text-sm text-slate-700 hover:bg-slate-50"
+          >
+            ⬆ Upload
+          </button>
+        </div>
+      )}
+      {/* Camera capture (mobile only — desktop ignores `capture` and shows a normal file picker) */}
       <input
-        ref={inputRef}
+        ref={cameraRef}
         type="file"
         accept="image/*"
         capture="environment"
@@ -146,7 +157,16 @@ export default function PhotoCapture({
         className="hidden"
         onChange={(e) => addFiles(e.target.files)}
       />
-      <p className="text-xs text-slate-500">Up to 5 photos. Each photo uploads in the background. If one fails, tap Retry.</p>
+      {/* Plain upload — gallery / files / drag-drop */}
+      <input
+        ref={uploadRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => addFiles(e.target.files)}
+      />
+      <p className="text-xs text-slate-500">Up to 5 photos. Use Take Photo for the camera, or Upload to pick from your gallery or files. Each photo uploads in the background.</p>
     </div>
   );
 }
