@@ -15,8 +15,17 @@ import AdminAccessLogs from "./pages/admin/AccessLogs";
 import Leaderboard from "./pages/Leaderboard";
 
 function HomeRedirect() {
-  const { profile, loading } = useAuth();
+  const { session, profile, loading } = useAuth();
   if (loading) return null;
+  // If a session exists but profile hasn't loaded yet, wait briefly to avoid
+  // flashing the public form before redirecting an admin to /admin.
+  if (session && !profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-sm text-slate-500">
+        Loading your account…
+      </div>
+    );
+  }
   if (profile?.role === "admin") return <Navigate to="/admin" replace />;
   return <PublicSubmit />;
 }

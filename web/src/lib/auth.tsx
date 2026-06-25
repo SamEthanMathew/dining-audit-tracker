@@ -28,18 +28,28 @@ function withTimeout<T>(p: Promise<T>, ms: number, fallback: () => T): Promise<T
   ]);
 }
 
+const PROFILE_LOAD_TIMEOUT_MS = 5000;
+
 async function loadProfile(uid: string): Promise<Profile | null> {
   try {
-    const { data, error } = await supabase
-      .from("users")
-      .select("id, full_name, email, role, location_id, active")
-      .eq("id", uid)
-      .maybeSingle();
-    if (error) {
-      console.error("profile load error", error);
+    const q = Promise.resolve(
+      supabase
+        .from("users")
+        .select("id, full_name, email, role, location_id, active")
+        .eq("id", uid)
+        .maybeSingle()
+    );
+    type Resp = { data: Profile | null; error: { message: string } | null };
+    const result = await withTimeout<Resp>(
+      q as unknown as Promise<Resp>,
+      PROFILE_LOAD_TIMEOUT_MS,
+      () => ({ data: null, error: { message: "profile load timeout" } })
+    );
+    if (result.error) {
+      console.error("profile load error", result.error);
       return null;
     }
-    return data;
+    return result.data;
   } catch (e) {
     console.error("profile load threw", e);
     return null;
