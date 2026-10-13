@@ -105,7 +105,7 @@ export default function AdminUsers() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Users</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold">Users</h1>
         <button className="btn-primary" onClick={() => setCreating(true)} disabled={busy}>Add user</button>
       </div>
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { listAccessLogs, listUsers } from "../../lib/api";
+import { listAccessLogs, listUsers, friendlyError } from "../../lib/api";
 import type { User } from "../../lib/api";
 
 export default function AdminAccessLogs() {
@@ -11,7 +11,7 @@ export default function AdminAccessLogs() {
   useEffect(() => {
     Promise.all([listAccessLogs(500), listUsers()])
       .then(([l, u]) => { setLogs(l); setUsers(u); })
-      .catch((e) => setError(e.message));
+      .catch((e) => setError(friendlyError(e)));
   }, []);
 
   const byId = useMemo(() => Object.fromEntries(users.map((u) => [u.id, u])), [users]);
@@ -26,7 +26,7 @@ export default function AdminAccessLogs() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Access logs</h1>
+      <h1 className="text-xl sm:text-2xl font-semibold">Access logs</h1>
       <input
         className="input max-w-md"
         placeholder="Filter by action, user, metadata…"

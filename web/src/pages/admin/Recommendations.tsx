@@ -35,7 +35,7 @@ export default function AdminRecommendations() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Recommendations</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold">Recommendations</h1>
         <button className="btn-primary" onClick={() => setAdding(true)}>Add recommendation</button>
       </div>
 

@@ -256,3 +256,22 @@ export async function listAuditPhotos(auditId: string): Promise<AuditPhoto[]> {
   if (error) throw new Error(error.message);
   return data ?? [];
 }
+
+/**
+ * Supabase surfaces raw fetch failures as "TypeError: Failed to fetch", which
+ * means nothing to a dining rep standing in a loading dock. Translate the
+ * handful we actually hit; pass everything else through unchanged.
+ */
+export function friendlyError(e: unknown): string {
+  const msg = typeof e === "string" ? e : (e as { message?: string } | null)?.message ?? "";
+  if (/failed to fetch|networkerror|network request failed/i.test(msg)) {
+    return "Couldn't reach the server. Check your connection and try again.";
+  }
+  if (/jwt|token is expired/i.test(msg)) {
+    return "Your session expired. Sign in again.";
+  }
+  if (msg === "already_submitted_this_week") {
+    return "An audit for this location was already submitted this week.";
+  }
+  return msg || "Something went wrong.";
+}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchLeaderboard } from "../lib/api";
+import { fetchLeaderboard, friendlyError } from "../lib/api";
 import TierBadge from "../components/TierBadge";
 
 export default function Leaderboard() {
@@ -8,7 +8,7 @@ export default function Leaderboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchLeaderboard().then(setRows).catch((e) => setError(e.message)).finally(() => setLoading(false));
+    fetchLeaderboard().then(setRows).catch((e) => setError(friendlyError(e))).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <p className="text-slate-500">Loading…</p>;
@@ -17,7 +17,7 @@ export default function Leaderboard() {
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-2xl font-semibold">Leaderboard</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold">Leaderboard</h1>
         <p className="text-slate-600 text-sm">
           Tier badges only. Numeric scores stay private to admins.
         </p>

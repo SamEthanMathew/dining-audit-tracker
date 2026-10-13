@@ -64,7 +64,7 @@ export default function AdminSettings() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Settings</h1>
+      <h1 className="text-xl sm:text-2xl font-semibold">Settings</h1>
       <p className="text-slate-600 text-sm">Changes take effect on the next audit submission and the next leaderboard read.</p>
 
       <div className="card p-5 space-y-4">

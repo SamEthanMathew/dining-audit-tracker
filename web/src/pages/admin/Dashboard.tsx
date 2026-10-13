@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchAdminDashboard, fetchAdminLeaderboard } from "../../lib/api";
+import { fetchAdminDashboard, fetchAdminLeaderboard, friendlyError } from "../../lib/api";
 import TierBadge from "../../components/TierBadge";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 
@@ -11,7 +11,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     Promise.all([fetchAdminDashboard(), fetchAdminLeaderboard()])
       .then(([d, b]) => { setData(d); setBoard(b); })
-      .catch((e) => setError(e.message));
+      .catch((e) => setError(friendlyError(e)));
   }, []);
 
   if (error) return <p className="text-red-600">{error}</p>;
@@ -21,7 +21,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Admin dashboard</h1>
+      <h1 className="text-xl sm:text-2xl font-semibold">Admin dashboard</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="card p-5">

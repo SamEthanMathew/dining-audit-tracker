@@ -36,7 +36,7 @@ export default function AdminNewAudit() {
     <div className="space-y-6">
       <header className="flex items-baseline justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Submit admin audit</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold">Submit admin audit</h1>
           <p className="text-slate-600 text-sm">Admin audits are weighted at 90% by default.</p>
         </div>
         <div className="inline-flex rounded-md border border-slate-300 overflow-hidden text-sm">

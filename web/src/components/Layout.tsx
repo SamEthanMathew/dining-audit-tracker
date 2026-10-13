@@ -24,32 +24,41 @@ export default function Layout({ admin = false }: { admin?: boolean }) {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="bg-cmu text-white border-b border-cmu-dark">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to={admin ? "/admin" : "/audit"} className="font-semibold text-lg tracking-tight">
-            CMU Dining — Waste Audits
+      <header className="bg-cmu text-white border-b border-cmu-dark sticky top-0 z-20 pt-safe">
+        <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+          <Link
+            to={admin ? "/admin" : "/audit"}
+            className="font-semibold tracking-tight leading-tight min-w-0"
+          >
+            <span className="block text-base sm:text-lg truncate">CMU Dining</span>
+            <span className="block text-[11px] font-normal text-white/70 -mt-0.5">Waste Audits</span>
           </Link>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="opacity-80 hidden sm:inline">
-              {profile?.full_name || profile?.email}{" "}
-              <span className="px-1.5 py-0.5 ml-1 rounded bg-white/15 text-xs uppercase tracking-wide">
-                {profile?.role}
-              </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="hidden md:inline text-sm opacity-80 max-w-[18rem] truncate">
+              {profile?.full_name || profile?.email}
             </span>
-            <button onClick={signOut} className="btn-ghost !bg-white/10 !text-white !border-white/30 hover:!bg-white/20">
+            <span className="px-1.5 py-0.5 rounded bg-white/15 text-[10px] uppercase tracking-wide">
+              {profile?.role}
+            </span>
+            <button
+              onClick={signOut}
+              className="min-h-10 px-3 rounded-lg text-xs font-semibold bg-white/10 border border-white/25 hover:bg-white/20 active:bg-white/25"
+            >
               Sign out
             </button>
           </div>
         </div>
-        <nav className="max-w-6xl mx-auto px-4 flex gap-1 overflow-x-auto">
+        <nav className="max-w-6xl mx-auto px-2 flex gap-0.5 overflow-x-auto no-scrollbar">
           {nav.map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
               end={(n as any).end}
               className={({ isActive }) =>
-                "px-3 py-2 text-sm whitespace-nowrap border-b-2 " +
-                (isActive ? "border-white text-white" : "border-transparent text-white/80 hover:text-white")
+                "px-3 min-h-11 flex items-center text-sm whitespace-nowrap border-b-2 " +
+                (isActive
+                  ? "border-white text-white font-semibold"
+                  : "border-transparent text-white/75 hover:text-white active:text-white")
               }
             >
               {n.label}
@@ -57,7 +66,7 @@ export default function Layout({ admin = false }: { admin?: boolean }) {
           ))}
         </nav>
       </header>
-      <main className="max-w-6xl mx-auto px-4 py-6">
+      <main className="max-w-6xl mx-auto px-4 py-5 sm:py-6 pb-safe">
         <Outlet />
       </main>
     </div>

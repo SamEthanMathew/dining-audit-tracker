@@ -12,39 +12,50 @@ export default function PublicSubmit() {
     const res = await submitAudit(payload);
     triggerEmail(res.audit.id);
     setResult(res);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-cmu text-white border-b border-cmu-dark">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div>
-            <div className="font-semibold tracking-tight">CMU Dining — Waste Audit</div>
-            <div className="text-xs text-white/80">Back-of-house dustbin check</div>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <header className="bg-cmu text-white border-b border-cmu-dark pt-safe">
+        <div className="max-w-3xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="font-semibold tracking-tight leading-tight truncate">CMU Dining — Waste Audit</div>
+            <div className="text-[11px] text-white/70 leading-tight">Back-of-house dustbin check</div>
           </div>
-          <div className="flex items-center gap-3 text-sm">
-            <Link to="/leaderboard" className="text-white/80 hover:text-white underline-offset-4 hover:underline">Leaderboard</Link>
-            <Link to="/login" className="text-white/80 hover:text-white underline-offset-4 hover:underline">Admin sign in</Link>
+          <div className="flex items-center gap-1 shrink-0">
+            <Link
+              to="/leaderboard"
+              className="min-h-10 px-2.5 flex items-center rounded-lg text-xs font-semibold text-white/85 hover:bg-white/10 active:bg-white/15"
+            >
+              Leaderboard
+            </Link>
+            <Link
+              to="/login"
+              className="min-h-10 px-2.5 flex items-center rounded-lg text-xs font-semibold text-white/85 hover:bg-white/10 active:bg-white/15"
+            >
+              Sign in
+            </Link>
           </div>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-6">
+      <main className="flex-1 w-full max-w-3xl mx-auto px-4 py-5 sm:py-6">
         {result ? (
           <div className="space-y-6">
             <AuditFeedback audit={result.audit} recommendations={result.recommendations} />
-            <div className="flex justify-between">
-              <Link to="/leaderboard" className="btn-ghost">See leaderboard</Link>
-              <button className="btn-primary" onClick={() => setResult(null)}>Submit another audit</button>
+            <div className="flex flex-col sm:flex-row sm:justify-between gap-2">
+              <button className="btn-primary sm:order-2" onClick={() => setResult(null)}>Submit another audit</button>
+              <Link to="/leaderboard" className="btn-ghost sm:order-1">See leaderboard</Link>
             </div>
           </div>
         ) : (
           <>
-            <div className="mb-6">
-              <h1 className="text-2xl font-semibold">Submit a waste audit</h1>
-              <p className="text-slate-600 text-sm">
-                Pick the location you're auditing, fill in your name, and answer a few yes/no questions for each bin.
-                Takes about 5–10 minutes including photos.
+            <div className="mb-5">
+              <h1 className="text-xl sm:text-2xl font-semibold">Submit a waste audit</h1>
+              <p className="text-slate-600 text-sm mt-1">
+                Pick the location you're auditing, add your name, then answer a few yes/no questions for each bin.
+                Photos are optional. Takes about 5–10 minutes.
               </p>
             </div>
             <SimpleAuditForm isAdmin={false} onSubmit={handle} />
@@ -52,7 +63,7 @@ export default function PublicSubmit() {
         )}
       </main>
 
-      <footer className="max-w-3xl mx-auto px-4 py-8 text-xs text-slate-400 text-center">
+      <footer className="max-w-3xl mx-auto px-4 py-6 text-xs text-slate-400 text-center pb-safe">
         CMU Dining Waste Audit Tracker · audits are reviewed by the Dining &amp; Sustainability team
       </footer>
     </div>

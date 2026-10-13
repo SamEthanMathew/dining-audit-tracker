@@ -45,7 +45,7 @@ export default function AdminLocations() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Locations</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold">Locations</h1>
         <button className="btn-primary" onClick={() => setCreating(true)} disabled={busy}>+ Add location</button>
       </div>
       <p className="text-slate-600 text-sm">Each location's contact email receives audit notifications. The account username is what staff at that location use to log in.</p>

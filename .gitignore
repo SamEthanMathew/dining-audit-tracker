@@ -41,3 +41,6 @@ supabase/.branches
 supabase/.temp
 
 .vercel
+
+# local agent/tooling artifacts
+.claude/

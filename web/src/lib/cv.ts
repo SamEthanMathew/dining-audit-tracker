@@ -39,7 +39,20 @@ const BIN_PROXIES = new Set([
   "refrigerator", "oven", "microwave", "sink",
 ]);
 
+/**
+ * The model is ~2MB of TF.js. That's fine on wifi and rude on a phone plan in
+ * a loading dock, so the check quietly opts out when the connection is slow or
+ * the user asked the browser to save data. Skipping always reads as "ok".
+ */
+function shouldSkipForConnection(): boolean {
+  const conn = (navigator as any).connection;
+  if (!conn) return false;
+  if (conn.saveData) return true;
+  return ["slow-2g", "2g", "3g"].includes(conn.effectiveType);
+}
+
 export async function detectBinish(file: File): Promise<{ ok: boolean; label: string }> {
+  if (shouldSkipForConnection()) return { ok: true, label: "skipped (slow connection)" };
   try {
     return await withTimeout(detectInner(file), CV_TIMEOUT_MS);
   } catch {
