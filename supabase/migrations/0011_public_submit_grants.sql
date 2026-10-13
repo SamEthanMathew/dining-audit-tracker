@@ -46,9 +46,12 @@ create policy "audit-photos public insert" on storage.objects
 -- few days with no matching row in public.audit_photos.
 
 -- 3. recommended_audit_window ---------------------------------------------
--- Deliberately NOT granted to anon. It would let anyone probe per-location
+-- Deliberately NOT available to anon. It would let anyone probe per-location
 -- audit timing, and the form already degrades silently without it: the
 -- "suggested next window" hint simply does not render for logged-out users.
+-- Revoked rather than merely omitted, because this project has had grants
+-- applied by hand — the migration should assert the end state, not assume it.
+revoke execute on function public.recommended_audit_window(uuid) from anon;
 
 -- 4. submit_audit ---------------------------------------------------------
 -- NOT changed here on purpose. The version in 0009 rejects anonymous callers
