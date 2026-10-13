@@ -4,8 +4,24 @@ const UPLOAD_TIMEOUT_MS = 90_000;
 const DECODE_TIMEOUT_MS = 15_000;
 const UPLOAD_ATTEMPTS = 3;
 
-/** Formats every browser can render in an <img>. Anything else gets transcoded. */
-const WEB_SAFE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+/**
+ * The only content types we will ever hand to Storage, and the extension each
+ * one is stored under. Never derive either from the file name or from
+ * `File.type` directly: a file called `bin.html` typed `text/html` would be
+ * served back inline from the storage domain and run as script in the admin's
+ * browser. Anything not on this list has to survive canvas re-encoding to JPEG
+ * or it does not get uploaded at all.
+ */
+const ALLOWED_UPLOAD_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/heic": "heic",
+  "image/heif": "heif",
+};
+
+/** Formats every browser can render in an <img> without transcoding. */
+const WEB_SAFE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 /** Progressive downscale ladder — first pass that lands under TARGET_BYTES wins. */
 const LADDER: { maxEdge: number; quality: number }[] = [
@@ -89,8 +105,9 @@ type Prepared = { blob: Blob; contentType: string; ext: string; warning?: string
  * Decode → EXIF-correct → downscale → JPEG. Phone cameras hand us 4–12MP
  * images (often HEIC on iOS) with the rotation only recorded in EXIF, so
  * uploading the raw file gives sideways photos the admin sometimes can't even
- * open. When decoding fails we still upload the original rather than lose the
- * evidence, but we label it honestly so it isn't served as a broken JPEG.
+ * open. If decoding fails we keep the original rather than lose the evidence —
+ * but only when its type is one we are willing to serve back (see
+ * ALLOWED_UPLOAD_TYPES), and always stored under that type's own extension.
  */
 async function prepareImage(file: File): Promise<Prepared> {
   try {
@@ -104,9 +121,13 @@ async function prepareImage(file: File): Promise<Prepared> {
       }
     }
   } catch (e) {
-    console.warn("[photos] could not re-encode, uploading original:", e);
-    const type = file.type || "application/octet-stream";
-    const ext = extensionFor(file, type);
+    console.warn("[photos] could not re-encode, falling back to the original:", e);
+    const type = (file.type || "").toLowerCase();
+    const ext = ALLOWED_UPLOAD_TYPES[type];
+    if (!ext) {
+      // Refuse rather than store something that could be served back as script.
+      throw new Error("That file isn't a photo we can store. Take the picture again or pick a JPEG or PNG.");
+    }
     const warning = WEB_SAFE_TYPES.has(type)
       ? undefined
       : "Saved in the phone's original format — it may not preview in every browser.";
@@ -186,14 +207,6 @@ function loadHtmlImage(file: File): Promise<HTMLImageElement> {
   });
 }
 
-function extensionFor(file: File, type: string): string {
-  const fromName = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "";
-  if (/^[a-z0-9]{1,5}$/.test(fromName)) return fromName;
-  const fromType = type.split("/")[1]?.toLowerCase().replace("+xml", "");
-  if (fromType && /^[a-z0-9]{1,5}$/.test(fromType)) return fromType;
-  return "bin";
-}
-
 // ---------------------------------------------------------------------------
 // Upload
 // ---------------------------------------------------------------------------
@@ -232,6 +245,9 @@ function friendlyUploadError(error: unknown): string {
   const lower = msg.toLowerCase();
   if (lower.includes("timeout")) return "Upload timed out — check your signal and tap Retry.";
   if (lower.includes("exceeded the maximum allowed size")) return "Photo is too large for the server.";
+  if (lower.includes("mime type") || lower.includes("not supported")) {
+    return "That image format isn't accepted. Take the photo again with the camera.";
+  }
   if (lower.includes("row-level security") || lower.includes("unauthorized") || lower.includes("403")) {
     return "Not allowed to upload photos right now. Reload the page and try again.";
   }

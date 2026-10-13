@@ -5,6 +5,13 @@
 -- Supabase Dashboard → Authentication → Users → "Add user" (email +
 -- password, "Auto Confirm User" on) — then apply this migration to attach
 -- the admin profile row. Re-running is safe.
+--
+-- This grants admin to whoever holds that address in auth.users, so before
+-- applying it confirm that (a) public sign-ups are disabled for this project
+-- and (b) the row was created by an administrator rather than self-registered.
+-- The email match is restricted to confirmed accounts for that reason. This is
+-- a one-time, deliberate grant for the project owner's own account; any further
+-- admins should go through /admin/users, which logs who created them.
 
 do $$
 declare
@@ -12,11 +19,15 @@ declare
   uid uuid;
   clashing_id uuid;
 begin
-  select id into uid from auth.users where lower(email) = target_email limit 1;
+  select id into uid
+    from auth.users
+   where lower(email) = target_email
+     and email_confirmed_at is not null
+   limit 1;
 
   if uid is null then
     raise notice
-      'Auth user % does not exist yet. Create it in Supabase Auth (Add user, auto-confirm), then re-run this migration.',
+      'No confirmed auth user for %. Create it in Supabase Auth (Add user, auto-confirm), then re-run this migration.',
       target_email;
     return;
   end if;
