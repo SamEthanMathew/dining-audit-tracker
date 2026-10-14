@@ -62,5 +62,23 @@ begin
      and username is null
      and not exists (select 1 from public.users u2 where u2.username = 'semathew');
 
+  -- GoTrue scans several auth.users columns into Go strings and fails on NULL
+  -- with "Database error querying schema" at sign-in. A row created through
+  -- the dashboard or the admin API already has them as ''; a row created by
+  -- hand with an INSERT does not. Normalising here makes this migration safe
+  -- either way.
+  update auth.users
+     set confirmation_token         = coalesce(confirmation_token, ''),
+         recovery_token             = coalesce(recovery_token, ''),
+         email_change               = coalesce(email_change, ''),
+         email_change_token_new     = coalesce(email_change_token_new, ''),
+         email_change_token_current = coalesce(email_change_token_current, ''),
+         phone_change               = coalesce(phone_change, ''),
+         phone_change_token         = coalesce(phone_change_token, ''),
+         reauthentication_token     = coalesce(reauthentication_token, ''),
+         is_sso_user                = coalesce(is_sso_user, false),
+         is_anonymous               = coalesce(is_anonymous, false)
+   where id = uid;
+
   raise notice 'Admin profile ensured for % (auth id %)', target_email, uid;
 end $$;

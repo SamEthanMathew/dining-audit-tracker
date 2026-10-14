@@ -1,63 +1,33 @@
 -- 0011_public_submit_grants.sql
--- Capture, as committed SQL, what the public (not-logged-in) submit form needs.
+-- What the anonymous /submit page needs, recorded as committed SQL.
 --
--- /submit is an anonymous page: there is no rep login any more. The grants it
--- depends on were applied directly to the hosted project and never recorded
--- here, which means a from-scratch rebuild produced a form that silently
--- failed — most visibly on photo upload, where `anon` had no INSERT policy on
--- storage.objects and every upload came back as an RLS violation.
+-- These grants were applied by hand to the hosted project (migration
+-- 20260602195014 "public_submit_and_locations") and never committed, so a
+-- from-scratch rebuild produced a form that could not read locations and could
+-- not upload a photo. Verified against the live project on 2026-10-14; every
+-- statement below matches what is actually deployed and is safe to re-run.
 --
--- Everything below is additive and idempotent. Reading photos is deliberately
--- NOT granted to anon: the submit form previews from local blob URLs, and only
--- staff should be able to pull images back out of the bucket.
+-- Reading photos is deliberately NOT granted to anon — see 0013.
 
 -- 1. Location dropdown ----------------------------------------------------
--- Exposes only the names of active dining locations, which are already public
--- (they are printed on the doors).
-drop policy if exists locations_public_read on public.locations;
-create policy locations_public_read on public.locations
+-- Only the names of active dining locations, which are already public.
+drop policy if exists locations_read_anon on public.locations;
+create policy locations_read_anon on public.locations
   for select to anon using (active = true);
 
--- 2. Photo upload from the public form ------------------------------------
--- Accepting uploads from unauthenticated clients is inherent to a public photo
--- submission form, so the limits are enforced rather than the capability:
---   * bucket-level size cap and MIME allow-list (applies to every caller)
---   * INSERT only — anon cannot read, overwrite, or delete objects
---   * path must match the shape the app writes: <submission-uuid>/<stream>/<file>
---   * image extensions only
-update storage.buckets
-   set file_size_limit   = 10485760,  -- 10 MB; the client targets ~1.2 MB
-       allowed_mime_types = array[
-         'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'
-       ]
- where id = 'audit-photos';
-
-drop policy if exists "audit-photos public insert" on storage.objects;
-create policy "audit-photos public insert" on storage.objects
-  for insert to anon, authenticated
-  with check (
-    bucket_id = 'audit-photos'
-    and array_length(storage.foldername(name), 1) = 2
-    and lower(storage.extension(name)) in ('jpg', 'jpeg', 'png', 'webp', 'heic', 'heif')
-  );
-
--- Orphans: photos are uploaded before the audit row exists, so an abandoned
--- form leaves files behind. Worth a scheduled cleanup of objects older than a
--- few days with no matching row in public.audit_photos.
-
--- 3. recommended_audit_window ---------------------------------------------
--- Deliberately NOT available to anon. It would let anyone probe per-location
--- audit timing, and the form already degrades silently without it: the
--- "suggested next window" hint simply does not render for logged-out users.
--- Revoked rather than merely omitted, because this project has had grants
--- applied by hand — the migration should assert the end state, not assume it.
-revoke execute on function public.recommended_audit_window(uuid) from anon;
-
--- 4. submit_audit ---------------------------------------------------------
--- NOT changed here on purpose. The version in 0009 rejects anonymous callers
--- outright (`select * into caller from public.users where id = auth.uid()`
--- → null → 'not authorized'), and audits.submitted_by is NOT NULL, so the
--- function running in production must already differ from this repo. Dump the
--- live definition and commit it as its own migration rather than guessing:
+-- 2. RPCs the public page calls -------------------------------------------
+-- submit_audit             — the submit itself (see 0012 for the function)
+-- leaderboard              — returns (location_id, location_name, tier); no numbers
+-- resolve_username         — lets the login box accept a username
+-- recommended_audit_window — the "suggested next window" hint on the form
 --
---   select pg_get_functiondef('public.submit_audit(jsonb)'::regprocedure);
+-- 0014 is the authority on the final grant set; it revokes the default PUBLIC
+-- grant that made these reachable regardless of the role grants below.
+grant execute on function public.submit_audit(jsonb)            to anon;
+grant execute on function public.leaderboard()                  to anon;
+grant execute on function public.resolve_username(text)         to anon;
+grant execute on function public.recommended_audit_window(uuid) to anon;
+
+-- 3. Photo upload ----------------------------------------------------------
+-- The insert policy and the bucket's limits live in 0013, which supersedes the
+-- unrestricted "audit-photos anon insert" policy that was deployed here.

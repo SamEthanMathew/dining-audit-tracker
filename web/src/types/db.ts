@@ -84,7 +84,8 @@ export type Database = {
           nullified_reason: string | null;
           reuse_program: boolean | null;
           simple_responses: Json | null;
-          submitted_by: string;
+          // null for anonymous public submissions
+          submitted_by: string | null;
           submitted_by_role: Database["public"]["Enums"]["user_role"];
           submitter_name: string | null;
           sustainability_contact: Json | null;
