@@ -9,6 +9,32 @@
 -- anonymous rep: submitted_by is left null (the column is nullable),
 -- submitted_by_role defaults to 'rep', and done_by_dining_team is ignored
 -- unless the caller is a signed-in admin.
+--
+-- Amended 2026-10-14 (applied live as "validate_audit_photo_paths" and
+-- "submit_audit_guard_photo_paths"): storage paths arrive in the request body
+-- of an anonymous endpoint, and audit_photos.storage_path had no uniqueness,
+-- so a submitter could attach a path that does not exist or one belonging to
+-- somebody else's audit. Now a path must exist in the bucket and can only ever
+-- belong to one audit — and a bad path skips that photo instead of failing the
+-- whole submission.
+
+create unique index if not exists uq_audit_photos_storage_path
+  on public.audit_photos(storage_path);
+
+create or replace function app.audit_photo_exists(p_path text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = storage, pg_temp
+as $$
+  select exists (
+    select 1 from storage.objects o
+     where o.bucket_id = 'audit-photos' and o.name = p_path
+  );
+$$;
+
+revoke execute on function app.audit_photo_exists(text) from public;
 
 create or replace function public.submit_audit(payload jsonb)
 returns jsonb
@@ -141,13 +167,20 @@ begin
 
   if jsonb_typeof(payload->'photos') = 'array' then
     for photo in select * from jsonb_array_elements(payload->'photos') loop
-      insert into public.audit_photos(audit_id, stream, storage_path, uploaded_by)
-      values (
-        audit_row.id,
-        (photo->>'stream')::public.waste_stream,
-        photo->>'storage_path',
-        uid
-      );
+      -- storage_path comes straight from the request body, and the submit
+      -- endpoint is anonymous. Only attach paths that really exist in the
+      -- bucket, and let the unique index drop any path already claimed by
+      -- another audit — a bad path skips the photo, it does not fail the audit.
+      if app.audit_photo_exists(photo->>'storage_path') then
+        insert into public.audit_photos(audit_id, stream, storage_path, uploaded_by)
+        values (
+          audit_row.id,
+          (photo->>'stream')::public.waste_stream,
+          photo->>'storage_path',
+          uid
+        )
+        on conflict (storage_path) do nothing;
+      end if;
     end loop;
   end if;
 
