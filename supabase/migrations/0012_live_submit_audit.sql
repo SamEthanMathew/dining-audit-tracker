@@ -16,25 +16,38 @@
 -- so a submitter could attach a path that does not exist or one belonging to
 -- somebody else's audit. Now a path must exist in the bucket and can only ever
 -- belong to one audit — and a bad path skips that photo instead of failing the
--- whole submission.
+-- whole submission. The path's stream folder must also match the stream the
+-- payload claims, so a compost photo cannot be filed under landfill.
+--
+-- Residual risk, documented rather than fixed: paths are client-chosen, so
+-- someone who learns an un-submitted path could claim it first. Enumeration is
+-- closed (0013 removed anon read/list) and the paths are random UUIDs, so this
+-- needs a leaked path. The real fix is server-issued upload tokens — an Edge
+-- Function handing out signed upload URLs tied to one submission — which is a
+-- design change, not a policy tweak.
 
 create unique index if not exists uq_audit_photos_storage_path
   on public.audit_photos(storage_path);
 
-create or replace function app.audit_photo_exists(p_path text)
+create or replace function app.audit_photo_exists(p_path text, p_stream text)
 returns boolean
 language sql
 stable
 security definer
 set search_path = storage, pg_temp
 as $$
+  -- Exists in the bucket AND sits in the folder for the stream it claims to
+  -- belong to (<submission-uuid>/<stream>/<file>), so a photo cannot be filed
+  -- under a bin it was not taken for.
   select exists (
     select 1 from storage.objects o
-     where o.bucket_id = 'audit-photos' and o.name = p_path
-  );
+     where o.bucket_id = 'audit-photos'
+       and o.name = p_path
+  ) and split_part(p_path, '/', 2) = p_stream;
 $$;
 
-revoke execute on function app.audit_photo_exists(text) from public;
+revoke execute on function app.audit_photo_exists(text, text) from public;
+drop function if exists app.audit_photo_exists(text);
 
 create or replace function public.submit_audit(payload jsonb)
 returns jsonb
@@ -171,7 +184,7 @@ begin
       -- endpoint is anonymous. Only attach paths that really exist in the
       -- bucket, and let the unique index drop any path already claimed by
       -- another audit — a bad path skips the photo, it does not fail the audit.
-      if app.audit_photo_exists(photo->>'storage_path') then
+      if app.audit_photo_exists(photo->>'storage_path', photo->>'stream') then
         insert into public.audit_photos(audit_id, stream, storage_path, uploaded_by)
         values (
           audit_row.id,
