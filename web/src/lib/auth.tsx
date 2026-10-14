@@ -80,11 +80,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })();
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       if (!active) return;
       setSession(s);
-      if (s?.user?.id) setProfile(await loadProfile(s.user.id));
-      else setProfile(null);
+      if (!s?.user?.id) {
+        setProfile(null);
+        return;
+      }
+      const uid = s.user.id;
+      // supabase-js holds an internal lock for the duration of this callback,
+      // and any client call made inside it waits on that lock — so awaiting a
+      // query here deadlocks until our own timeout fires ("profile load
+      // timeout"), which is what made admin sign-in stall. Defer the query to
+      // the next tick so the callback returns and releases the lock first.
+      setTimeout(() => {
+        if (!active) return;
+        void loadProfile(uid).then((p) => {
+          if (active) setProfile(p);
+        });
+      }, 0);
     });
     return () => {
       active = false;
